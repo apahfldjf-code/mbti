@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>전남대학교 MBTI를 통한 학과 매칭</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --head:#F9E89C; --accent:#BFA6E6; --accent2:#9aa7e0; --deep:#5b3fa0; --bg:#FFFDF6; --card:#fff;
+  --text:#222; --muted:#6b6b6b; --ok:#3cab6b; --warn:#e0a52a; --bad:#d9534f;
+  --shadow:0 10px 30px rgba(50,50,93,0.08);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:'Noto Sans KR',system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+body{background:var(--bg);
+  background-image:linear-gradient(135deg,rgba(255,255,255,.6) 0,rgba(255,255,255,.6) 2px,transparent 2px,transparent 26px),
+                   linear-gradient(45deg,rgba(255,255,255,.5) 0,rgba(255,255,255,.5) 1px,transparent 1px,transparent 24px);
+  color:var(--text);padding:20px;}
+.app{max-width:1040px;margin:0 auto;}
+
+/* ===== 헤더 ===== */
+header{background:var(--head);padding:12px 18px;border-radius:12px;display:flex;align-items:center;gap:0;box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.03)}
+header .logo{display:flex;align-items:center;flex:0 0 auto;text-decoration:none}
+header .logo img{height:44px;width:auto;display:block;mix-blend-mode:multiply}
+header .logo .text-logo{display:none;font-weight:900;font-size:20px;color:#1f5f3f;line-height:1.1}
+header .logo .text-logo small{display:block;font-size:9px;letter-spacing:1px;opacity:.8}
+header .logo.fallback img{display:none}
+header .logo.fallback .text-logo{display:block}
+header .divider{width:1px;height:40px;background:rgba(0,0,0,.15);margin:0 16px;flex:0 0 auto}
+header .title-box{flex:1 1 auto;min-width:0}
+header h1{margin:0;font-size:18px;font-weight:900;line-height:1.3;word-break:keep-all}
+header .tag-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+header .tag{font-size:11px;font-weight:800;color:var(--deep);background:rgba(255,255,255,.7);border:1px solid rgba(91,63,160,.25);padding:2px 9px;border-radius:999px;white-space:nowrap}
+header a.link{font-size:11px;color:var(--deep);text-decoration:none;font-weight:700;white-space:nowrap}
+header .small{font-size:12px;color:var(--muted);margin-top:4px;word-break:keep-all}
+
+main{display:grid;grid-template-columns:1fr 340px;gap:18px;margin-top:14px}
+@media(max-width:920px){main{grid-template-columns:1fr}}
+.quiz-wrap{background:var(--card);padding:16px;border-radius:12px;box-shadow:var(--shadow)}
+.btn{background:var(--head);color:#222;border:none;padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.05)}
+.btn.secondary{background:transparent;color:var(--text);border:1px solid rgba(0,0,0,.08);box-shadow:none}
+.btn.secondary.on{background:#efe9fb;border-color:var(--deep);color:var(--deep)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sm{padding:6px 10px;font-size:12px}
+select.sm{padding:6px 8px;font-size:12px;border-radius:8px;border:1px solid rgba(0,0,0,.12);background:#fff}
+
+/* ===== 시작 화면 · 모드 선택 ===== */
+.start-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 16px 34px;min-height:380px}
+.start-screen h2{margin:0 0 8px;font-size:30px;font-weight:900;word-break:keep-all}
+.start-screen p{margin:0;color:var(--muted);font-size:15px;line-height:1.7;word-break:keep-all}
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:min(680px,100%);margin:28px 0 10px}
+.mode-card{border:none;border-radius:20px;padding:26px 20px 22px;cursor:pointer;text-align:center;color:#fff;position:relative;
+  box-shadow:0 16px 40px rgba(150,130,200,.3);transition:transform .15s,box-shadow .15s;font-family:inherit}
+.mode-card:hover{transform:translateY(-4px);box-shadow:0 22px 50px rgba(150,130,200,.4)}
+.mode-card:active{transform:translateY(0)}
+.mode-card.quick{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.mode-card.full{background:linear-gradient(135deg,#7d63b8,var(--deep))}
+.mode-card .m-title{display:block;font-size:26px;font-weight:900;letter-spacing:1px}
+.mode-card .m-sub{display:block;font-size:15px;font-weight:800;margin-top:6px;opacity:.95}
+.mode-card .m-desc{display:block;font-size:12px;margin-top:10px;opacity:.85;line-height:1.5;word-break:keep-all}
+.mode-card .m-rec{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--head);color:#5b3fa0;font-size:11px;font-weight:900;padding:3px 12px;border-radius:999px;box-shadow:0 4px 10px rgba(0,0,0,.12);white-space:nowrap}
+.start-note{margin-top:14px;font-size:12px;color:var(--muted)}
+.big-start{padding:16px 24px;font-size:20px;font-weight:900;border-radius:16px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 12px 30px rgba(150,130,200,.3)}
+
+/* ===== 문항 ===== */
+.progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.progress-bar{flex:1;height:12px;background:rgba(0,0,0,.04);border-radius:999px;overflow:hidden}
+.progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .35s}
+.progress-label{font-size:13px;color:var(--muted);min-width:70px;text-align:right}
+.mode-pill{font-size:11px;font-weight:800;color:var(--deep);background:#efe9fb;border:1px solid #e6def7;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.question-card{background:linear-gradient(180deg,#fff,#fbfbff);border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(0,0,0,.04);min-height:220px;display:flex;flex-direction:column;justify-content:space-between}
+.q-count{font-size:13px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.q-text{font-size:21px;font-weight:800;margin-bottom:14px;line-height:1.6;word-break:keep-all}
+.options{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.opt{padding:14px 6px;border-radius:12px;border:1px solid rgba(0,0,0,.06);text-align:center;cursor:pointer;background:linear-gradient(180deg,#fff,#fcfcff);transition:transform .12s,box-shadow .12s;user-select:none}
+.opt .val{font-weight:900;display:block;margin-bottom:6px;font-size:20px}
+.opt .desc{font-size:12px;color:var(--muted)}
+.opt:hover{transform:translateY(-3px);box-shadow:0 8px 22px rgba(150,130,200,.08)}
+.opt.selected{background:linear-gradient(180deg,var(--accent),var(--accent2));color:#fff;border-color:transparent}
+.opt.selected .desc{color:#fff}
+.scale-legend{display:none}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px}
+.hint{font-size:11px;color:var(--muted)}
+
+/* ===== 우측 패널 ===== */
+.panel{background:linear-gradient(180deg,#fff,#fbfbff);padding:14px;border-radius:12px;box-shadow:var(--shadow);position:sticky;top:22px}
+.type-badge{display:inline-block;padding:8px 14px;border-radius:999px;background:var(--accent);color:#fff;font-weight:900;font-size:18px;letter-spacing:2px}
+.summary{margin-top:12px;color:var(--muted);font-size:13px;line-height:1.6;word-break:keep-all}
+.rec-card{background:#fff;padding:10px 12px;border-radius:10px;border:1px solid rgba(0,0,0,.05)}
+.rec-card h4{margin:0 0 8px 0;font-size:13px}
+.rec-card ul{margin:0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.7}
+
+/* ===== 양극 막대 ===== */
+.axis{margin:10px 0 14px}
+.axis .lab{display:flex;justify-content:space-between;font-size:12px;font-weight:800}
+.axis .lab span.c{color:var(--muted);font-weight:400}
+.axis .bar{position:relative;height:14px;border-radius:999px;background:rgba(0,0,0,.06);margin-top:6px}
+.axis .bar .fill{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px}
+.axis .bar .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:rgba(0,0,0,.35)}
+.axis .bar .dot{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:var(--deep);border:2px solid #fff;transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.axis .ticks{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px}
+
+/* ===== 결과 ===== */
+.result-area{display:none;margin-top:12px}
+.result-area.show{display:block}
+.result-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.result-title{font-size:38px;font-weight:900;letter-spacing:4px;line-height:1.1}
+.result-sub{color:var(--muted);margin-top:6px;font-size:14px}
+.card{margin-top:12px;background:#fff;padding:12px 14px;border-radius:12px;border:1px solid rgba(0,0,0,.05)}
+.card h3{margin:0 0 10px 0;font-size:15px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+.chart-box{position:relative;height:280px}
+.chart-box.tall{height:330px}
+.chip{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;background:#f3effc;border:1px solid #e6def7;margin:3px 3px 0 0}
+.chip small{color:#7d63b8;margin-left:4px}
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;color:#fff}
+.badge.ok{background:var(--ok)}.badge.warn{background:var(--warn)}.badge.bad{background:var(--bad)}
+.badge.gj{background:#5b8def}.badge.ys{background:#3fb3a8}.badge.fit{background:#7d63b8}.badge.mode{background:#444}
+.tgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tcell{border-radius:10px;padding:10px 4px;text-align:center;border:1px solid rgba(0,0,0,.05)}
+.tcell b{display:block;font-size:14px;letter-spacing:1px}.tcell span{font-size:11px}
+.tcell.dark{color:#fff}
+.tcell.top{outline:3px solid var(--deep);outline-offset:-3px}
+.jgroup{margin:10px 0}
+.jhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.fblock,.dcard{border:1px solid rgba(0,0,0,.06);border-radius:10px;padding:10px 12px;margin-top:8px;background:#fcfbff}
+.fline{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:6px}
+.fline .lbl{font-size:11px;color:var(--muted);margin-right:6px;min-width:110px;font-weight:700}
+.rank{display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--deep);color:#fff;font-size:12px;font-weight:900;text-align:center;line-height:22px;margin-right:6px}
+.score{font-size:20px;font-weight:900;color:var(--deep);white-space:nowrap}
+.cmpwrap{margin-top:8px}
+.cmp{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12px;font-weight:800}
+.cmp .ctrack{flex:1;position:relative;height:10px;border-radius:999px;background:rgba(0,0,0,.06)}
+.cmp .ctrack:before{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:rgba(0,0,0,.25)}
+.cmp i{position:absolute;top:50%}
+.cmp i.me{width:14px;height:14px;border-radius:50%;background:var(--deep);border:2px solid #fff;box-shadow:0 0 0 1px var(--deep);transform:translate(-50%,-50%)}
+.cmp i.dep{width:11px;height:11px;background:var(--warn);border:2px solid #fff;box-shadow:0 0 0 1px var(--warn);transform:translate(-50%,-50%) rotate(45deg)}
+table.dept{width:100%;border-collapse:collapse;font-size:13px}
+table.dept th,table.dept td{padding:7px 6px;border-bottom:1px solid rgba(0,0,0,.05);text-align:left;vertical-align:middle}
+table.dept th{font-size:12px;color:var(--muted);font-weight:700}
+table.dept tbody tr[data-i]{cursor:pointer}
+table.dept tbody tr[data-i]:hover{background:#faf8ff}
+tr.drow td{background:#fcfbff;padding:10px 12px}
+.mbar{height:8px;border-radius:999px;background:rgba(0,0,0,.05);overflow:hidden;min-width:80px}
+.mbar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.reason{font-size:11px;color:#7d63b8;margin-top:4px}
+.rel li{font-size:13px;color:var(--muted);margin:3px 0}
+.flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.notice{background:#fff8e6;border:1px solid #f3dfa0;border-radius:10px;padding:8px 12px;font-size:12px;color:#7a5b00;margin-top:10px;line-height:1.6}
+footer.small{font-size:11px;color:var(--muted);text-align:center;margin-top:16px;line-height:1.6;user-select:none}
+
+/* ===== 관리자 패널 (보정값 수집) ===== */
+.admin-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:99;padding:16px}
+.admin-ov.show{display:flex}
+.admin{background:#fff;border-radius:14px;padding:18px;width:min(560px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);font-size:13px}
+.admin h3{margin:0 0 10px}
+.admin table{width:100%;border-collapse:collapse;margin:8px 0}
+.admin td,.admin th{padding:5px 6px;border-bottom:1px solid rgba(0,0,0,.06);text-align:center}
+.admin th{font-size:12px;color:var(--muted)}
+.admin input{width:64px;padding:4px;border:1px solid rgba(0,0,0,.15);border-radius:6px;text-align:center;font-family:inherit}
+.admin .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+
+/* ===== 모바일 ===== */
+@media(max-width:640px){
+  body{padding:10px} main{gap:12px;margin-top:10px} .quiz-wrap{padding:12px}
+  header{flex-direction:column;text-align:center;padding:14px 12px;gap:8px}
+  header .divider{display:none} header .logo img{height:38px} header .title-box{width:100%}
+  header h1{font-size:17px} header .tag-row{justify-content:center} header .small{font-size:11px;line-height:1.5}
+  .progress-wrap .progress-label{display:none} .progress-wrap{margin-bottom:8px}
+  .question-card{padding:14px 12px;min-height:0} .q-count{font-size:12px} .q-text{font-size:19px;line-height:1.5;margin-bottom:12px}
+  .options{gap:6px} .opt{padding:16px 2px;border-radius:12px} .opt .val{font-size:22px;margin:0} .opt .desc{display:none}
+  .scale-legend{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px;padding:0 2px}
+  .nav .hint{display:none} .nav{gap:6px} .nav>button,.nav>div{flex:1} .nav>div{display:flex;gap:6px} .nav>div>button{flex:1}
+  .btn{padding:12px 8px;font-size:14px}
+  .start-screen{padding:26px 6px 22px;min-height:0} .start-screen h2{font-size:22px} .start-screen p{font-size:14px}
+  .mode-grid{grid-template-columns:1fr;gap:18px;margin-top:24px} .mode-card{padding:22px 16px 18px} .mode-card .m-title{font-size:23px}
+  .result-title{font-size:30px;letter-spacing:2px} .panel{position:static}
+  .chart-box{height:240px} .chart-box.tall{height:300px}
+  table.dept{font-size:12px} table.dept th:nth-child(3),table.dept td:nth-child(3){display:none}
+  .fline .lbl{min-width:100%}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <a class="logo" href="https://www.jnu.ac.kr" target="_blank" rel="noopener" aria-label="전남대학교 홈페이지">
+      <img src="https://www.jnu.ac.kr/images/common/logo.png" alt="전남대학교" onerror="this.parentElement.classList.add('fallback')">
+      <span class="text-logo">전남대학교<small>CHONNAM NATIONAL UNIVERSITY</small></span>
+    </a>
+    <div class="divider"></div>
+    <div class="title-box">
+      <h1>전남대학교 MBTI를 통한 학과 매칭</h1>
+      <div class="tag-row"><span class="tag">2026 여수세계섬박람회</span><a class="link" href="https://admission.jnu.ac.kr" target="_blank" rel="noopener">입학안내 ↗</a></div>
+      <div class="small">빠른 체험 24문항 · 정밀 검사 60문항 · 나에게 맞는 직업과 전남대 학과를 알아보세요</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="quiz-wrap">
+      <div id="startScreen" class="start-screen">
+        <h2>나의 성격 유형을 알아볼까요?</h2>
+        <p>질문을 읽고 나와 얼마나 비슷한지 1~5점 중 하나를 눌러 주세요.<br>정답은 없어요. 평소의 내 모습을 떠올리며 편하게 답하면 됩니다.</p>
+        <div class="mode-grid">
+          <button class="mode-card quick" data-mode="quick">
+            <span class="m-rec">부스 체험 추천</span>
+            <span class="m-title">빠른 체험</span>
+            <span class="m-sub">24문항 · 약 3분</span>
+            <span class="m-desc">처음 해보는 분, 어린이, 줄이 길 때<br>핵심 문항만으로 유형과 학과를 확인</span>
+          </button>
+          <button class="mode-card full" data-mode="full">
+            <span class="m-title">정밀 검사</span>
+            <span class="m-sub">60문항 · 약 8분</span>
+            <span class="m-desc">진로를 진지하게 고민하는 분<br>경계 성향까지 세밀하게 분석</span>
+          </button>
+        </div>
+        <div class="start-note">개인정보를 입력하지 않으며, 응답은 이 화면을 벗어나면 저장되지 않습니다.</div>
+      </div>
+
+      <div id="progressWrap" class="progress-wrap" style="display:none">
+        <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+        <div id="progressLabel" class="progress-label">0 / 0</div>
+      </div>
+
+      <div id="questionArea" class="question-card" style="display:none;">
+        <div>
+          <div class="q-count"><span id="qCount">1 / 0</span><span class="mode-pill" id="qMode"></span><span id="qAnswered">응답 0</span></div>
+          <div class="q-text" id="qText"></div>
+        </div>
+        <div>
+          <div class="options" id="options" role="listbox" aria-label="응답 선택"></div>
+          <div class="scale-legend"><span>← 전혀 그렇지 않다</span><span>매우 그렇다 →</span></div>
+        </div>
+        <div class="nav">
+          <button id="btnPrev" class="btn secondary" disabled>이전</button>
+          <span class="hint">키보드: 1~5 선택 · → 다음 · ← 이전</span>
+          <div style="display:flex;gap:8px;">
+            <button id="btnSkip" class="btn secondary">건너뛰기</button>
+            <button id="btnNext" class="btn">다음</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultArea" class="result-area" aria-live="polite">
+        <div class="result-top">
+          <div>
+            <div style="font-size:13px;color:var(--muted)">전남대학교 MBTI 학과 매칭 결과 · <span class="badge mode" id="rMode"></span> · 검사일: <span id="rDate"></span></div>
+            <div class="result-title" id="rMBTI">— — — —</div>
+            <div class="result-sub" id="rSummaryShort"></div>
+            <div id="rAlt" class="result-sub" style="color:#7d63b8;font-weight:700"></div>
+          </div>
+          <div style="text-align:right">
+            <div id="rReliability"></div>
+            <button id="btnDownload" class="btn" style="margin-top:8px" data-html2canvas-ignore>PDF 저장</button>
+          </div>
+        </div>
+        <div id="quickNotice" class="notice" style="display:none">빠른 체험(24문항) 결과입니다. 문항 수가 적어 한 문항의 영향이 크므로, 경계로 표시된 지표나 2·3위 유형도 함께 참고하세요. 더 정확한 결과가 필요하면 정밀 검사(60문항)를 이용해 주세요.</div>
+
+        <div class="grid2">
+          <div class="card"><h3>선호 지표 (양극 척도)</h3><div id="axisBars"></div><div class="hint" id="axisHint"></div></div>
+          <div class="card"><h3>8극 선호 분포</h3><div class="chart-box"><canvas id="radarChart"></canvas></div>
+            <div class="hint">마주보는 극(E↔I, S↔N, T↔F, J↔P)의 합은 100%입니다. 한쪽으로 치우친 모양일수록 선호가 분명합니다.</div></div>
+        </div>
+
+        <div class="card">
+          <h3>16유형 근접도 분포 <span class="hint">모든 유형에 대한 가까움을 확률로 환산(합계 100%)</span></h3>
+          <div class="tgrid" id="typeGrid"></div>
+          <div id="typeTop" class="hint" style="margin-top:8px"></div>
+        </div>
+
+        <div class="card" id="rProfile"></div>
+
+        <div class="card">
+          <h3>직업 분야 적합도 <span class="hint">11개 분야 · 상대 비교</span></h3>
+          <div class="chart-box tall"><canvas id="fieldChart"></canvas></div>
+          <div id="fieldDetail"></div>
+        </div>
+
+        <div class="card">
+          <h3>어울리는 직업 10가지 <span class="hint">분야별 정리</span></h3>
+          <div id="jobList"></div>
+        </div>
+
+        <div class="card">
+          <h3>전남대학교 추천 학과 Top 3 상세 <span class="hint">● 나 · ◆ 학과 성향</span></h3>
+          <div id="deptTop"></div>
+        </div>
+
+        <div class="card">
+          <div class="flex" style="justify-content:space-between">
+            <h3 style="margin:0">전남대학교 모집단위 전체 매칭 <span class="hint">2027학년도 수시모집요강 Ⅱ. 모집인원 기준 · 행을 누르면 상세</span></h3>
+            <div class="flex" data-html2canvas-ignore>
+              <button class="btn secondary sm on" data-campus="all">전체</button>
+              <button class="btn secondary sm" data-campus="광주">광주</button>
+              <button class="btn secondary sm" data-campus="여수">여수</button>
+              <select id="deptField" class="sm"><option value="all">모든 분야</option></select>
+              <button class="btn secondary sm" id="btnMore">더 보기</button>
+            </div>
+          </div>
+          <table class="dept" style="margin-top:8px">
+            <thead><tr><th>#</th><th>모집단위</th><th>단과대학</th><th>캠퍼스</th><th>매칭도</th></tr></thead>
+            <tbody id="deptBody"></tbody>
+          </table>
+          <div class="hint" style="margin-top:6px">매칭도는 95개 모집단위 전체의 성향 분포를 기준으로 한 <b>상대 비교</b> 지표이며 합격 가능성이나 적성 판정이 아닙니다. 모집단위는 학칙 개정 등으로 변경될 수 있습니다.</div>
+        </div>
+
+        <div class="card"><h3>응답 신뢰도 분석</h3><ul class="rel" id="relList"></ul></div>
+
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap" data-html2canvas-ignore>
+          <button id="btnRetake" class="big-start">처음으로 돌아가기</button>
+          <button id="btnUpgrade" class="big-start" style="background:linear-gradient(135deg,#7d63b8,var(--deep));display:none">정밀 검사(60문항)로 다시 하기</button>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--muted);">출처: MBTI 원리 기반 자체 재작성 문항 · 학과 데이터: 2027학년도 전남대학교 수시모집요강 Ⅱ. 모집인원(모집단위)</div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="type-badge" id="previewBadge">— —</div>
+      <div style="margin-top:8px;font-size:13px;color:var(--muted)">예상 유형 (실시간) <span id="previewConf" class="hint"></span></div>
+      <div id="previewAxes" style="margin-top:8px"></div>
+      <div class="summary" id="previewSummary">검사를 시작하면 실시간 예측이 표시됩니다.</div>
+      <div class="rec-card" style="margin-top:12px"><h4>직업 (예상)</h4><ul id="previewJobs"><li>—</li></ul></div>
+      <div class="rec-card" style="margin-top:10px"><h4>전남대 학과 (예상 Top3)</h4><ul id="previewMajors"><li>—</li></ul></div>
+    </aside>
+  </main>
+
+  <footer class="small" id="foot">전남대학교 · MBTI를 통한 학과 매칭 (문항: 자체 재작성 / 출처: MBTI 원리 기반) · 모집단위: 2027학년도 수시모집요강 Ⅱ. 모집인원</footer>
+</div>
+
+<!-- 관리자 패널: 하단 문구 5회 연속 탭 또는 Ctrl+Shift+A -->
+<div class="admin-ov" id="adminOv">
+  <div class="admin">
+    <h3>보정값(CAL) 관리 <span class="hint">운영자 전용 · 개인정보 없음(축별 점수 4개만 누적)</span></h3>
+    <div id="adminBody"></div>
+    <div class="row">
+      <button class="btn sm" id="adApply">입력값 적용·저장</button>
+      <button class="btn secondary sm" id="adSuggest">권장값 채우기</button>
+      <button class="btn secondary sm" id="adCopy">로그 복사(JSON)</button>
+      <button class="btn secondary sm" id="adClear">로그 초기화</button>
+      <button class="btn secondary sm" id="adClose">닫기</button>
+    </div>
+    <div class="hint" style="margin-top:8px;line-height:1.6">권장값 = 누적 응답자의 축별 raw 중앙값. 100명 이상 모인 뒤 적용을 권합니다. 보정은 <b>학과·분야 매칭에만</b> 적용되며 유형 글자(예: INFP) 판정에는 영향을 주지 않습니다.</div>
+  </div>
+</div>
+
+<script>
+/* ===== 0. 모드 설정 ===== */
+const CFG={
+  quick:{label:'빠른 체험',items:24,minutes:'약 3분',minN:2,border:0.20,run:6,skip:false,rows:5},
+  full: {label:'정밀 검사',items:60,minutes:'약 8분',minN:3,border:0.15,run:12,skip:true, rows:8}
+};
+let MODE='quick';
+const C=()=>CFG[MODE];
+const clamp=x=>Math.max(-1,Math.min(1,x));
+
+/* ===== B. 응답자 보정 상수 (E–I, S–N, T–F, J–P) =====
+   양수 = 모집단이 E/S/T/J 쪽으로, 음수 = I/N/F/P 쪽으로 치우쳐 있음을 뜻함.
+   기본 0. 관리자 패널에서 저장하면 localStorage('jnu_cal')로 덮어씀. 학과·분야 매칭에만 적용. */
+let CAL=[0,0,0,0];
+try{const s=JSON.parse(localStorage.getItem('jnu_cal')||'null');if(Array.isArray(s)&&s.length===4)CAL=s.map(Number);}catch(e){}
+
+/* ===== 1. 문항 (s:1 = 빠른 체험 24문항) — C: 바람직성 높은 문장 중립화 ===== */
+const AXES=[
+  {key:'EI',left:'E',right:'I',ln:'외향(E)',rn:'내향(I)',desc:'에너지 방향'},
+  {key:'SN',left:'S',right:'N',ln:'감각(S)',rn:'직관(N)',desc:'인식 기능'},
+  {key:'TF',left:'T',right:'F',ln:'사고(T)',rn:'감정(F)',desc:'판단 기능'},
+  {key:'JP',left:'J',right:'P',ln:'판단(J)',rn:'인식(P)',desc:'생활 양식'}
+];
+const questions=[
+ {t:"사람 많은 자리에서 금방 분위기를 띄운다.",a:'EI',k:1,w:1.0},
+ {t:"처음 만난 사람과도 쉽게 대화를 시작한다.",a:'EI',k:1,w:1.0,p:'a',s:1},
+ {t:"하루를 사람들과 바쁘게 보내면 에너지가 오른다.",a:'EI',k:1,w:1.2,p:'b',s:1},
+ {t:"즉석 모임 제안이 반갑다.",a:'EI',k:1,w:1.0},
+ {t:"생각을 말로 풀어야 정리가 된다.",a:'EI',k:1,w:1.0},
+ {t:"새로운 모임에 참여하는 일이 설렌다.",a:'EI',k:1,w:1.0},
+ {t:"주말에는 밖에서 여러 사람과 어울리는 편이다.",a:'EI',k:1,w:1.0},
+ {t:"여러 사람 앞에서 발표하는 일이 즐겁다.",a:'EI',k:1,w:1.0,s:1},
+ {t:"큰 모임보다 소수 혹은 1:1 대화를 선호한다.",a:'EI',k:-1,w:1.0},
+ {t:"말하기 전 머릿속으로 충분히 정리한다.",a:'EI',k:-1,w:1.0},
+ {t:"사람들과 오래 어울리면 금방 지친다.",a:'EI',k:-1,w:1.2,p:'b',s:1},
+ {t:"혼자 있는 시간이 있어야 기운이 다시 생긴다.",a:'EI',k:-1,w:1.0,s:1},
+ {t:"낯선 자리에서는 말하기보다 먼저 지켜보는 편이다.",a:'EI',k:-1,w:1.0,p:'a',s:1},
+ {t:"사람 많은 자리는 부담스럽다.",a:'EI',k:-1,w:1.2},
+ {t:"중요한 이야기는 먼저 글이나 메모로 정리한다.",a:'EI',k:-1,w:1.0},
+ {t:"설명보다 구체적인 예와 숫자가 있어야 이해가 잘 된다.",a:'SN',k:1,w:1.0,s:1},
+ {t:"문제가 생기면 이미 해 본 방법부터 쓴다.",a:'SN',k:1,w:1.2,p:'c',s:1},
+ {t:"새로운 아이디어도 현실 가능성부터 따져본다.",a:'SN',k:1,w:1.0},
+ {t:"지침서와 절차를 충실히 따른다.",a:'SN',k:1,w:1.0},
+ {t:"작은 실수나 틀린 부분을 잘 찾아낸다.",a:'SN',k:1,w:1.0,s:1},
+ {t:"현재 상황에서 바로 할 수 있는 일에 집중한다.",a:'SN',k:1,w:1.0},
+ {t:"직접 경험한 것을 믿고, 경험 밖의 이론은 의심하는 편이다.",a:'SN',k:1,w:1.0},
+ {t:"설명은 순서대로 단계별로 정리된 것이 좋다.",a:'SN',k:1,w:1.0},
+ {t:"아이디어를 연결해 큰 그림을 그리는 일이 즐겁다.",a:'SN',k:-1,w:1.0},
+ {t:"규칙에 예외가 있을 수 있다고 자주 생각한다.",a:'SN',k:-1,w:1.0},
+ {t:"지금 눈앞의 일보다 앞으로 어떻게 될지 생각하는 시간이 더 많다.",a:'SN',k:-1,w:1.2,p:'d',s:1},
+ {t:"상징이나 비유로 설명하면 이해가 더 쉽다.",a:'SN',k:-1,w:1.0},
+ {t:"설명서를 읽기보다 먼저 만져 보면서 알아간다.",a:'SN',k:-1,w:1.0,p:'c',s:1},
+ {t:"추상적 개념을 토론하는 걸 좋아한다.",a:'SN',k:-1,w:1.0},
+ {t:"잘 되는 방법이 있어도 다른 방법을 해 보고 싶어 바꿔 본다.",a:'SN',k:-1,w:1.0,p:'d',s:1},
+ {t:"결정할 때 기분보다 규칙과 기준을 먼저 본다.",a:'TF',k:1,w:1.2,p:'e',s:1},
+ {t:"의견이 달라도 논리로 설득하는 편이다.",a:'TF',k:1,w:1.0},
+ {t:"평가할 때 공정성과 일관성을 중시한다.",a:'TF',k:1,w:1.0},
+ {t:"효율이 낮으면 방법을 과감히 바꾼다.",a:'TF',k:1,w:1.0},
+ {t:"친한 친구라도 잘못한 점은 그대로 말해 준다.",a:'TF',k:1,w:1.0,p:'f',s:1},
+ {t:"감동적인 이야기보다 이유와 근거가 분명한 말이 더 와닿는다.",a:'TF',k:1,w:1.0,s:1},
+ {t:"비판을 받으면 내용의 타당성부터 따져본다.",a:'TF',k:1,w:1.0},
+ {t:"결론이 다소 불편하더라도 사실이 맞다면 그대로 말한다.",a:'TF',k:1,w:1.0},
+ {t:"결정을 내릴 때 그 결정이 누구를 서운하게 할지 먼저 생각난다.",a:'TF',k:-1,w:1.2,p:'e',s:1},
+ {t:"다투게 되면 내가 옳더라도 관계가 나빠지는 게 더 싫다.",a:'TF',k:-1,w:1.0,s:1},
+ {t:"팀의 분위기와 감정 흐름에 민감하다.",a:'TF',k:-1,w:1.0},
+ {t:"옳은 말이라도 상대 기분이 상할 것 같으면 말을 아낀다.",a:'TF',k:-1,w:1.0,p:'f',s:1},
+ {t:"도움이 필요하면 자연스럽게 도와준다.",a:'TF',k:-1,w:1.0},
+ {t:"공감이 잘 되는 사람과 함께하는 게 효율적이다.",a:'TF',k:-1,w:1.0},
+ {t:"타인의 칭찬과 인정이 일의 동력이 된다.",a:'TF',k:-1,w:1.0},
+ {t:"마감과 일정이 정해져 있을 때 마음이 편하다.",a:'JP',k:1,w:1.2,p:'g',s:1},
+ {t:"계획을 세우면 변경 사유가 있어야 바꾼다.",a:'JP',k:1,w:1.0},
+ {t:"일을 시작하기 전에 필요한 것을 먼저 챙겨 둔다.",a:'JP',k:1,w:1.0},
+ {t:"미리 결정하고 진행 상황을 체크한다.",a:'JP',k:1,w:1.0},
+ {t:"해야 할 일과 휴식 시간을 분리해 둔다.",a:'JP',k:1,w:1.0},
+ {t:"할 일을 목록으로 적고 하나씩 지워 가는 것을 즐긴다.",a:'JP',k:1,w:1.0,s:1},
+ {t:"즉흥 제안은 불편하고 피하는 편이다.",a:'JP',k:1,w:1.2},
+ {t:"빨리 결정하고 끝내 두는 편이 마음 편하다.",a:'JP',k:1,w:1.0,p:'h',s:1},
+ {t:"계획은 대충만 세우고 하면서 바꾸는 편이다.",a:'JP',k:-1,w:1.0,p:'g',s:1},
+ {t:"기회가 오면 계획을 바꿔서라도 잡는다.",a:'JP',k:-1,w:1.0},
+ {t:"결정을 미루고 마지막까지 여러 가능성을 남겨 둔다.",a:'JP',k:-1,w:1.2,p:'h',s:1},
+ {t:"준비 없이 일단 시작하고 하면서 방향을 잡는다.",a:'JP',k:-1,w:1.0,s:1},
+ {t:"유연한 일정이 더 높은 성과를 만든다.",a:'JP',k:-1,w:1.0},
+ {t:"새로운 정보가 생기면 결정을 뒤집을 수 있다.",a:'JP',k:-1,w:1.0},
+ {t:"마감 직전에 몰아서 처리하는 편이다.",a:'JP',k:-1,w:1.0}
+];
+
+/* ===== 2. 직업 분야 ===== */
+const FIELDS=[
+ {id:'eng', n:'공학·IT',            v:[-0.2, 0.2, 0.7, 0.3]},
+ {id:'sci', n:'자연과학·수리',      v:[-0.4, 0.0, 0.7, 0.3]},
+ {id:'med', n:'의약·보건',          v:[ 0.0, 0.4, 0.2, 0.5]},
+ {id:'bio', n:'농생명·해양·환경',   v:[-0.1, 0.5, 0.3, 0.3]},
+ {id:'biz', n:'경영·경제·행정',     v:[ 0.3, 0.2, 0.5, 0.5]},
+ {id:'soc', n:'사회과학·미디어·국제',v:[ 0.4,-0.3, 0.0, 0.0]},
+ {id:'hum', n:'인문·어문·역사',     v:[-0.3,-0.4,-0.2, 0.1]},
+ {id:'edu', n:'교육·상담·복지',     v:[ 0.2, 0.0,-0.5, 0.4]},
+ {id:'art', n:'예술·디자인·콘텐츠', v:[ 0.1,-0.4,-0.5,-0.3]},
+ {id:'law', n:'법률·공공안전',      v:[ 0.1, 0.4, 0.4, 0.6]},
+ {id:'free',n:'자율·융합 탐색',     v:[ 0.1,-0.4, 0.0,-0.4]}
+];
+const FM=Object.fromEntries(FIELDS.map(f=>[f.id,f]));
+
+/* ===== 3. 유형 프로필 ===== */
+const P={
+ INTJ:{s:"전략적 설계자 — 장기 목표를 세우고 체계적으로 실행하는 분석가.",st:["구조적 사고","독립적 문제 해결","높은 기준"],g:["타인의 감정 신호 읽기","완벽주의 완화"],ls:"혼자 개념의 구조를 세우며 깊게 파는 학습, 장기 계획형",env:"자율성이 높고 전문성이 인정되는 조직, 목표가 명확한 일",
+  j:[["전략기획가","biz"],["데이터사이언티스트","eng"],["시스템아키텍트","eng"],["자연과학 연구원","sci"],["투자분석가","biz"],["변리사","law"],["정책분석관","law"],["반도체설계엔지니어","eng"],["대학교수","edu"],["테크 스타트업 창업가","biz"]]},
+ INTP:{s:"이론적 탐구자 — 논리와 독창성으로 문제의 본질을 파헤치는 사색가.",st:["개념 분석","창의적 논리","지적 호기심"],g:["실행 마무리","의사소통의 구체성"],ls:"원리와 이유를 파악하는 학습, 관심 주제에 깊이 몰입",env:"규칙보다 아이디어가 존중되는 유연한 연구·개발 환경",
+  j:[["소프트웨어개발자","eng"],["AI연구원","eng"],["수학자·통계학자","sci"],["인문학 연구자","hum"],["정보보안전문가","eng"],["게임기획자","art"],["특허분석가","law"],["물리학자","sci"],["테크니컬라이터","soc"],["시스템분석가","eng"]]},
+ ENTJ:{s:"결단의 리더 — 목표 지향적이며 조직을 움직이는 실행력이 뛰어남.",st:["리더십","전략적 판단","추진력"],g:["경청과 인내","다양한 속도 존중"],ls:"목표를 정하고 토론·발표로 정리하는 학습",env:"성과와 도전이 있는 리더 역할, 빠른 의사결정 조직",
+  j:[["경영컨설턴트","biz"],["기업 임원·CEO","biz"],["변호사","law"],["프로젝트매니저","biz"],["정책기획자·정치인","law"],["투자은행가","biz"],["마케팅디렉터","biz"],["스타트업 창업가","biz"],["공공기관 관리자","law"],["산업공학엔지니어","eng"]]},
+ ENTP:{s:"창의적 논객 — 아이디어를 쏟아내고 토론으로 가능성을 확장함.",st:["발상력","설득력","적응력"],g:["세부 마무리","우선순위 유지"],ls:"토론·질문·프로젝트형 학습, 여러 분야를 연결",env:"변화가 많고 새로운 시도가 장려되는 환경",
+  j:[["창업가","biz"],["광고기획자(AE)","soc"],["변호사","law"],["벤처투자가(VC)","biz"],["제품기획자(PM)","eng"],["방송PD","soc"],["정치컨설턴트","law"],["기술사업화 전문가","eng"],["국제무역 전문가","biz"],["교육콘텐츠기획자","edu"]]},
+ INFJ:{s:"통찰력 있는 조언자 — 깊은 공감과 통찰로 사람과 사회를 돕는 유형.",st:["통찰력","헌신","가치 중심"],g:["자기 돌봄","현실적 타협"],ls:"의미와 맥락을 이해하는 학습, 조용한 집중",env:"가치가 일치하는 조직, 사람의 성장을 돕는 역할",
+  j:[["임상심리사·상담사","edu"],["작가","hum"],["사회복지사","edu"],["국어·윤리 교사","edu"],["인권·NGO 활동가","soc"],["정신건강간호사","med"],["UX리서처","eng"],["특수교사","edu"],["문화기획자","art"],["철학·종교 연구자","hum"]]},
+ INFP:{s:"이상주의적 창작자 — 가치와 의미를 중시하며 표현으로 세상과 소통함.",st:["감수성","창의성","진정성"],g:["현실적 일정 관리","비판 수용"],ls:"관심과 공감이 생기는 주제에 몰입, 창작·글쓰기로 정리",env:"자율적이고 개인의 가치가 존중되는 환경",
+  j:[["작가·시나리오작가","hum"],["일러스트레이터","art"],["심리상담사","edu"],["작곡가·음악가","art"],["번역가","hum"],["사회복지사","edu"],["편집자","hum"],["콘텐츠크리에이터","art"],["문화인류학 연구자","hum"],["예술치료사","med"]]},
+ ENFJ:{s:"따뜻한 리더 — 사람의 잠재력을 끌어내는 공감형 리더.",st:["소통력","동기 부여","조직 화합"],g:["과도한 책임감 조절","거절하기"],ls:"함께 배우고 가르치며 익히는 학습",env:"협력적이고 소통이 활발한 조직, 사람 중심 역할",
+  j:[["교사","edu"],["HRD·교육기획자","biz"],["홍보·커뮤니케이션 전문가","soc"],["상담사","edu"],["사회복지기관 관리자","edu"],["외교관·정치인","soc"],["아나운서·방송인","soc"],["코치·퍼실리테이터","edu"],["간호관리자","med"],["국제개발협력 전문가","soc"]]},
+ ENFP:{s:"열정적 개척자 — 창의적이고 사람을 연결하는 에너지가 뛰어남.",st:["열정","네트워킹","아이디어"],g:["집중력 유지","루틴 만들기"],ls:"흥미 중심의 탐색형 학습, 아이디어 발표",env:"창의성이 장려되고 사람과 교류가 많은 환경",
+  j:[["마케터·브랜드기획자","biz"],["방송작가·PD","soc"],["광고크리에이터","art"],["여행·관광기획자","biz"],["축제·이벤트기획자","art"],["유튜버·크리에이터","art"],["심리상담사","edu"],["사회혁신 창업가","biz"],["기자","soc"],["디자이너","art"]]},
+ ISTJ:{s:"책임 있는 관리자 — 신뢰성과 체계성으로 조직의 기반을 지킴.",st:["성실성","정확성","책임감"],g:["변화 수용","유연한 소통"],ls:"체계적 정리·반복 복습, 자료 정리형",env:"절차가 분명하고 안정적인 조직, 책임이 명확한 역할",
+  j:[["행정공무원","law"],["회계사·세무사","biz"],["감사·내부통제 전문가","biz"],["약사","med"],["법무사·법원공무원","law"],["품질관리엔지니어","eng"],["사서","hum"],["군인·경찰","law"],["데이터베이스관리자","eng"],["물류관리자","biz"]]},
+ ISFJ:{s:"성실한 수호자 — 신중하고 세심하게 타인을 보살피는 유형.",st:["배려","꼼꼼함","헌신"],g:["자기 주장","변화 대응"],ls:"꼼꼼한 정리와 실습 중심, 차분한 반복",env:"협력적이고 안정적인 조직, 돌봄·지원 역할",
+  j:[["간호사","med"],["초등·유아교사","edu"],["사회복지사","edu"],["영양사","med"],["행정사무 전문가","biz"],["치과위생사","med"],["사서","hum"],["보육교사","edu"],["보건의료정보관리사","med"],["고객경험(CX) 관리자","biz"]]},
+ ESTJ:{s:"구조화된 관리자 — 규칙과 절차로 성과를 만드는 조직 운영자.",st:["실행력","조직화","결단력"],g:["다양성 포용","감정 고려"],ls:"계획표대로 실행, 목표·성과 중심 학습",env:"규칙이 분명한 조직, 관리·운영 역할",
+  j:[["기업 운영관리자","biz"],["공무원","law"],["경찰·군 간부","law"],["건설사업관리자(CM)","eng"],["생산관리자","eng"],["금융관리자·은행원","biz"],["판사·검사","law"],["물류·유통관리자","biz"],["수학·과학 교사","edu"],["감정평가사","biz"]]},
+ ESFJ:{s:"사회적 조정자 — 사람을 돌보고 공동체를 운영하는 능력이 뛰어남.",st:["협력","친화력","실무 감각"],g:["비판 수용","자기 욕구 표현"],ls:"함께 공부하며 정리, 실용적 응용 중심",env:"사람과 협력하며 봉사·서비스가 있는 환경",
+  j:[["교사","edu"],["간호사","med"],["호텔·관광서비스 매니저","biz"],["인사담당자(HR)","biz"],["홍보담당자","soc"],["사회복지사","edu"],["급식·영양관리자","med"],["이벤트플래너","art"],["항공승무원","soc"],["유치원교사","edu"]]},
+ ISTP:{s:"현실적 문제해결가 — 손과 도구로 즉각 문제를 해결하는 기술자.",st:["실용성","침착함","기술 감각"],g:["장기 계획","감정 표현"],ls:"직접 만져보고 실습하며 익히는 학습",env:"자율적이고 기술 중심의 현장·실무 환경",
+  j:[["기계엔지니어","eng"],["항공정비사","eng"],["소프트웨어개발자","eng"],["과학수사 경찰","law"],["소방관","law"],["선박기관사","eng"],["자동차 튠업엔지니어","eng"],["데이터엔지니어","eng"],["응급구조사","med"],["드론·로봇 운용기술자","eng"]]},
+ ISFP:{s:"조용한 예술가 — 감각적이고 따뜻하며 표현력이 풍부함.",st:["미적 감각","유연성","온화함"],g:["장기 목표 설정","자기 주장"],ls:"체험과 감각으로 익히는 학습, 실기 중심",env:"경쟁보다 조화, 자기 표현이 가능한 환경",
+  j:[["패션·시각디자이너","art"],["요리사·파티시에","bio"],["사진작가","art"],["수의사·동물보건사","med"],["플로리스트·조경디자이너","bio"],["물리치료사","med"],["공예가","art"],["연주자","art"],["뷰티·미용 전문가","soc"],["간호사","med"]]},
+ ESTP:{s:"즉흥적 수행자 — 상황에 빠르게 반응해 결과를 만드는 행동가.",st:["순발력","협상력","현장 감각"],g:["장기 관점","세부 규칙 준수"],ls:"실전·현장 중심, 짧고 빠른 피드백",env:"역동적이고 즉각적 결과가 보이는 현장",
+  j:[["영업·세일즈 전문가","biz"],["소매·유통 창업가","biz"],["해양경찰·경찰","law"],["스포츠선수·트레이너","edu"],["부동산개발 전문가","biz"],["응급의학 의료인","med"],["파일럿","eng"],["무역·물류 전문가","biz"],["이벤트프로듀서","art"],["소방관","law"]]},
+ ESFP:{s:"활동적 연예인 — 현장 분위기를 이끄는 타고난 분위기 메이커.",st:["친화력","표현력","낙천성"],g:["계획성","집중 지속"],ls:"활동·체험·팀 프로젝트로 익히는 학습",env:"활기 있고 사람과 함께하는 서비스·공연 환경",
+  j:[["배우·공연예술가","art"],["관광가이드","biz"],["MC·방송인","soc"],["스포츠강사","edu"],["유아교사","edu"],["패션스타일리스트","art"],["판매·프로모션 전문가","biz"],["요리사","bio"],["항공승무원","soc"],["문화예술·레크리에이션 강사","edu"]]}
+};
+
+/* ===== 4. 전남대 모집단위 (2027 수시모집요강 Ⅱ. 모집인원) ===== */
+const D=(n,c,cp,v,f,cr)=>({n,c,cp,v,f,cr});
+const DEPTS=[
+ D("국어국문학과","인문대학","광주",[-0.4,-0.5,-0.5,0.0],'hum',"작가·편집자·국어교사(교직)·언어데이터 연구"),
+ D("영어영문학과","인문대학","광주",[0.2,-0.4,-0.3,0.0],'hum',"통번역·외국계기업·영어교사(교직)·국제기구"),
+ D("독일언어문학과(독어독문학전공, 독일지역학전공)","인문대학","광주",[-0.2,-0.4,-0.2,0.1],'hum',"통번역·유럽지역 전문가·문화콘텐츠·외교"),
+ D("불어불문학과(불어불문학전공, 프랑스문화·지역학전공)","인문대학","광주",[0.0,-0.5,-0.4,-0.1],'hum',"통번역·문화예술기획·외교·관광"),
+ D("중어중문학과","인문대학","광주",[0.2,-0.1,-0.1,0.2],'hum',"무역·통번역·중국지역 전문가·공기업"),
+ D("일어일문학과","인문대학","광주",[0.1,-0.1,-0.2,0.1],'hum',"통번역·일본기업·관광·콘텐츠"),
+ D("사학과","인문대학","광주",[-0.4,-0.4,0.1,0.3],'hum',"학예연구사·기록물관리사·역사교사(교직)·문화재"),
+ D("철학과","인문대학","광주",[-0.5,-0.8,0.3,-0.2],'hum',"연구·언론·출판·윤리교육·공공정책"),
+ D("정치외교학과","사회과학대학","광주",[0.5,-0.4,0.3,0.3],'soc',"외교관·공무원·국회·언론·국제기구"),
+ D("사회학과","사회과학대학","광주",[0.1,-0.5,0.0,-0.1],'soc',"조사연구·언론·공공기관·NGO·데이터분석"),
+ D("심리학과","사회과학대학","광주",[-0.2,-0.5,-0.4,-0.1],'edu',"임상·상담심리사·HR·UX리서처·연구"),
+ D("문헌정보학과","사회과학대학","광주",[-0.5,0.3,0.0,0.6],'hum',"사서·기록관리·정보큐레이션·데이터관리"),
+ D("미디어커뮤니케이션학과","사회과학대학","광주",[0.6,-0.4,-0.2,-0.3],'soc',"기자·PD·광고홍보·콘텐츠기획"),
+ D("지리학과","사회과학대학","광주",[0.0,-0.1,0.2,0.1],'soc',"GIS전문가·도시계획·환경·공간데이터"),
+ D("문화인류고고학과","사회과학대학","광주",[-0.1,-0.5,-0.1,-0.3],'hum',"학예연구사·문화재조사·박물관·문화기획"),
+ D("행정학과","사회과학대학","광주",[0.2,0.4,0.3,0.7],'law',"행정공무원·공기업·정책분석·입법"),
+ D("경영학부(경영학전공, 회계학전공, AI비즈니스전공)","경영대학","광주",[0.5,0.1,0.5,0.5],'biz',"경영기획·회계사·마케팅·AI비즈니스·금융"),
+ D("경제학부","경영대학","광주",[0.0,-0.1,0.7,0.4],'biz',"경제분석·금융·공무원·연구원·컨설팅"),
+ D("수학과","자연과학대학","광주",[-0.5,-0.3,0.8,0.3],'sci',"데이터과학·금융공학·수학교사(교직)·연구"),
+ D("통계학과","자연과학대학","광주",[-0.4,0.2,0.8,0.5],'sci',"데이터분석·보험계리·공공통계·AI"),
+ D("물리학과","자연과학대학","광주",[-0.5,-0.5,0.8,0.1],'sci',"반도체·광학·연구원·물리교사(교직)"),
+ D("지구환경과학부(지질환경전공, 해양환경전공)","자연과학대학","광주",[0.0,0.4,0.4,0.0],'bio',"지질·해양·환경·기상·에너지자원"),
+ D("생물학과","자연과학대학","광주",[-0.2,0.3,0.4,0.2],'sci',"생명과학연구·바이오산업·환경·생물교사(교직)"),
+ D("화학과","자연과학대학","광주",[-0.3,0.3,0.6,0.4],'sci',"화학·제약·소재 연구·품질관리·화학교사(교직)"),
+ D("생명과학기술학부(생명과학전공, 시스템생명공학전공)","자연과학대학","광주",[-0.2,0.0,0.5,0.2],'sci',"바이오·제약연구·시스템생명공학·의생명"),
+ D("건축학부(건축·도시설계전공, 건축공학전공)","공과대학","광주",[0.1,-0.2,0.2,0.3],'eng',"건축사·도시설계·건설사·건축엔지니어"),
+ D("환경에너지공학과","공과대학","광주",[0.0,0.3,0.4,0.3],'eng',"환경엔지니어·에너지·환경공무원·컨설팅"),
+ D("기계공학부(에너지기계·정밀기계·지능기계전공)","공과대학","광주",[-0.1,0.5,0.7,0.3],'eng',"기계설계·자동차·로봇·에너지플랜트"),
+ D("전자컴퓨터공학부(전자공학·컴퓨터정보통신공학·시스템반도체공학전공)","공과대학","광주",[-0.3,0.0,0.8,0.2],'eng',"SW개발·반도체·통신·임베디드"),
+ D("고분자융합소재공학부(고분자공학전공, 융합섬유공학전공)","공과대학","광주",[-0.1,0.4,0.5,0.3],'eng',"고분자·섬유·소재·화학기업 연구개발"),
+ D("산업공학과","공과대학","광주",[0.2,0.2,0.6,0.6],'eng',"생산관리·품질·데이터분석·컨설팅·물류"),
+ D("생물공학과","공과대학","광주",[-0.2,0.2,0.5,0.3],'eng',"바이오공정·제약·식품·의생명 연구"),
+ D("에너지공학계열(에너지자원·토목·신소재·화학공학·전기·에너지공학부)","공과대학","광주",[0.0,0.4,0.6,0.3],'eng',"에너지·플랜트·전력·소재·건설"),
+ D("에너지자원공학과","공과대학","광주",[0.1,0.5,0.5,0.3],'eng',"자원개발·에너지·지반·환경"),
+ D("토목공학과","공과대학","광주",[0.2,0.6,0.5,0.6],'eng',"토목시공·구조설계·도로·수자원·공무원"),
+ D("신소재공학부(금속재료·에너지나노재료·광·전자재료전공)","공과대학","광주",[-0.3,0.3,0.6,0.3],'eng',"금속·나노·전자재료·반도체·이차전지"),
+ D("화학공학부(화학공정·화공안전·화공소재전공)","공과대학","광주",[-0.1,0.4,0.6,0.5],'eng',"화학공정·정유·화공안전·배터리·소재"),
+ D("전기공학과","공과대학","광주",[-0.2,0.3,0.7,0.4],'eng',"전력·전기설비·전기안전·스마트그리드"),
+ D("전기전자컴퓨터공학계열(전자통신·전기및반도체·컴퓨터공학과)","공학대학","여수",[-0.3,0.1,0.7,0.2],'eng',"전자통신·반도체·SW개발·IoT"),
+ D("기계공학계열(기계설계·기계시스템·메카트로닉스·냉동공조공학과)","공학대학","여수",[-0.1,0.6,0.6,0.3],'eng',"기계설계·메카트로닉스·냉동공조·자동화"),
+ D("화공환경공학계열(환경시스템·융합생명·화공생명공학과)","공학대학","여수",[-0.1,0.3,0.5,0.4],'eng',"환경시스템·화공생명·석유화학·바이오"),
+ D("건축디자인학과","공학대학","여수",[0.2,-0.3,0.0,0.1],'art',"건축디자인·인테리어·공간디자인·BIM"),
+ D("의공학부(바이오헬스케어전공, 디지털헬스케어전공)","공학대학","여수",[0.0,0.1,0.4,0.3],'med',"의료기기·디지털헬스·바이오헬스케어·병원IT"),
+ D("석유화학소재공학과","공학대학","여수",[-0.1,0.5,0.6,0.4],'eng',"석유화학·소재·플랜트·품질관리"),
+ D("산업기술융합공학과(야간)","공학대학","여수",[0.1,0.5,0.4,0.5],'eng',"산업기술·생산·품질·재직자 역량개발"),
+ D("응용식물학과","농업생명과학대학","광주",[-0.1,0.5,0.2,0.3],'bio',"작물연구·종자·농업기술·농촌진흥청"),
+ D("원예생명공학과","농업생명과학대학","광주",[0.0,0.4,0.0,0.2],'bio',"원예·스마트팜·식물공장·화훼"),
+ D("응용생물학과","농업생명과학대학","광주",[-0.2,0.4,0.3,0.2],'bio',"곤충·미생물·병해충·바이오소재"),
+ D("산림자원학과","농업생명과학대학","광주",[-0.1,0.5,0.1,0.3],'bio',"산림·임업·환경·산림공무원"),
+ D("임산공학과","농업생명과학대학","광주",[-0.1,0.5,0.4,0.3],'bio',"목재·펄프·바이오매스·친환경소재"),
+ D("조경학과","농업생명과학대학","광주",[0.1,0.0,-0.1,0.2],'bio',"조경설계·도시녹지·공원계획·환경복원"),
+ D("농생명화학과","농업생명과학대학","광주",[-0.2,0.4,0.5,0.3],'bio',"농약·비료·식품화학·환경분석"),
+ D("식품공학과","농업생명과학대학","광주",[0.0,0.5,0.3,0.4],'bio',"식품개발·품질·식품안전·식품기업"),
+ D("분자생명공학과","농업생명과학대학","광주",[-0.3,0.0,0.5,0.2],'bio',"유전공학·바이오신약·진단·연구"),
+ D("동물자원학부(동물자원과학전공, 동물생명과학전공)","농업생명과학대학","광주",[0.0,0.4,0.0,0.2],'bio',"축산·동물생명·사료·반려동물산업"),
+ D("지역·바이오시스템공학과","농업생명과학대학","광주",[0.1,0.4,0.4,0.4],'bio',"농업기계·스마트팜·수자원·농촌계획"),
+ D("바이오에너지공학과","농업생명과학대학","광주",[-0.1,0.1,0.5,0.2],'bio',"바이오에너지·신재생·바이오소재"),
+ D("농업경제학과","농업생명과학대학","광주",[0.2,0.2,0.4,0.4],'biz',"농산업경영·유통·정책·농협·식품기업"),
+ D("융합바이오시스템기계공학과","농업생명과학대학","광주",[-0.1,0.5,0.6,0.3],'eng',"농업로봇·스마트농기계·자동화"),
+ D("국어교육과","사범대학","광주",[0.1,-0.2,-0.4,0.4],'edu',"국어교사·교육연구·출판·교육콘텐츠"),
+ D("영어교육과","사범대학","광주",[0.3,-0.2,-0.3,0.4],'edu',"영어교사·교육연구·통번역·교육콘텐츠"),
+ D("교육학과","사범대학","광주",[0.2,-0.3,-0.3,0.3],'edu',"교육연구·교육행정·HRD·상담·교육공무원"),
+ D("유아교육과","사범대학","광주",[0.4,0.3,-0.7,0.3],'edu',"유치원교사·유아교육기관·교육콘텐츠"),
+ D("지리교육과","사범대학","광주",[0.1,0.1,0.0,0.4],'edu',"지리교사·GIS·교육연구"),
+ D("역사교육과","사범대학","광주",[0.0,-0.2,0.0,0.4],'edu',"역사교사·박물관교육·교육연구"),
+ D("윤리교육과","사범대학","광주",[0.0,-0.4,-0.2,0.4],'edu',"윤리교사·인성교육·교육연구"),
+ D("수학교육과","사범대학","광주",[0.0,0.0,0.6,0.5],'edu',"수학교사·교육데이터·교육콘텐츠"),
+ D("물리교육과","사범대학","광주",[-0.1,-0.2,0.6,0.4],'edu',"물리교사·과학교육·과학관"),
+ D("화학교육과","사범대학","광주",[0.0,0.3,0.5,0.5],'edu',"화학교사·과학교육·교육연구"),
+ D("생물교육과","사범대학","광주",[0.1,0.3,0.2,0.4],'edu',"생물교사·과학교육·생태교육"),
+ D("지구과학교육과","사범대학","광주",[0.0,0.1,0.3,0.4],'edu',"지구과학교사·과학관·기상·천문교육"),
+ D("가정교육과","사범대학","광주",[0.2,0.4,-0.4,0.5],'edu',"가정교사·소비자·식생활교육·가족복지"),
+ D("음악교육과","사범대학","광주",[0.3,-0.2,-0.5,0.2],'edu',"음악교사·음악교육·공연·문화예술교육"),
+ D("체육교육과","사범대학","광주",[0.7,0.6,0.1,0.3],'edu',"체육교사·스포츠지도·체육행정·재활"),
+ D("특수교육학부(유아특수·초등특수·중등특수교육전공)","사범대학","광주",[0.2,0.2,-0.7,0.4],'edu',"특수교사·특수교육기관·재활·복지"),
+ D("생활복지학과","생활과학대학","광주",[0.3,0.1,-0.7,0.3],'edu',"사회복지사·가족상담·노인복지·복지행정"),
+ D("식품영양과학부(식품학전공, 영양학전공)","생활과학대학","광주",[0.1,0.5,0.0,0.5],'med',"영양사·임상영양·식품개발·급식경영"),
+ D("의류학과","생활과학대학","광주",[0.3,0.1,-0.3,0.1],'art',"패션디자인·MD·의류소재·패션마케팅"),
+ D("인공지능학부(인공지능·AI소프트웨어·정보보안전공)","AI융합대학","광주",[-0.4,-0.2,0.8,0.1],'eng',"AI엔지니어·SW개발·정보보안·데이터과학"),
+ D("미래모빌리티학과","AI융합대학","광주",[-0.1,0.1,0.7,0.2],'eng',"자율주행·전동화·모빌리티SW·배터리"),
+ D("빅데이터융합학과","AI융합대학","광주",[-0.2,0.0,0.7,0.4],'eng',"데이터사이언티스트·데이터엔지니어·BI"),
+ D("간호학과","간호대학","광주",[0.3,0.5,-0.4,0.6],'med',"간호사·보건교사·간호공무원·연구간호사"),
+ D("수의예과","수의과대학","광주",[-0.1,0.5,0.2,0.4],'med',"수의사·동물병원·검역·수의연구"),
+ D("약학부(약학전공, 제약학전공)","약학대학","광주",[-0.2,0.5,0.5,0.6],'med',"약사·제약연구·임상시험·식약처"),
+ D("의학과","의과대학","광주",[0.0,0.3,0.4,0.6],'med',"의사·의학연구·공공보건·의료행정"),
+ D("치의학전문대학원(학·석사통합과정)","치의학전문대학원","광주",[0.0,0.5,0.4,0.5],'med',"치과의사·치의학연구·구강보건"),
+ D("음악학과(피아노·성악·작곡·관현악전공)","예술대학","광주",[0.2,-0.3,-0.6,0.0],'art',"연주자·성악가·작곡가·음악교육"),
+ D("국악학과(국악성악·국악작곡이론·국악기악전공)","예술대학","광주",[0.1,-0.2,-0.6,0.1],'art',"국악연주·국악작곡·국립국악원·전통예술교육"),
+ D("미술학과(한국화·서양화·조소·공예·이론전공)","예술대학","광주",[-0.3,-0.5,-0.6,-0.4],'art',"작가·큐레이터·공예·미술교육·이론연구"),
+ D("디자인학과","예술대학","광주",[0.1,-0.3,-0.3,-0.2],'art',"시각·제품·UX디자인·브랜딩"),
+ D("국제학부(영어학전공)","문화사회과학대학","여수",[0.5,-0.2,-0.2,0.0],'soc',"통번역·국제업무·관광·영어교육"),
+ D("국제학부(일본학전공)","문화사회과학대학","여수",[0.3,0.0,-0.2,0.1],'soc',"일본기업·통번역·관광·무역"),
+ D("국제학부(중국학전공)","문화사회과학대학","여수",[0.4,0.0,0.0,0.1],'soc',"중국무역·통번역·중국지역 전문가"),
+ D("글로벌비즈니스학과","문화사회과학대학","여수",[0.6,0.0,0.3,0.2],'biz',"해외영업·무역·글로벌마케팅·물류"),
+ D("물류교통학과","문화사회과학대학","여수",[0.2,0.5,0.5,0.6],'biz',"물류관리·교통계획·항만·유통"),
+ D("문화콘텐츠학부(멀티미디어전공, 전자상거래전공)","문화사회과학대학","여수",[0.3,-0.3,0.0,-0.3],'art',"멀티미디어·영상·전자상거래·콘텐츠기획"),
+ D("문화관광경영학과","문화사회과학대학","여수",[0.7,0.2,-0.2,0.0],'biz',"관광기획·호텔·MICE·문화마케팅"),
+ D("해양수산자율전공계열(양식생물·해양생산관리·해양융합과학·해양바이오식품·해양경찰학과)","수산해양대학","여수",[0.2,0.5,0.2,0.2],'bio',"양식·해양생산·해양바이오식품·해양경찰"),
+ D("기관시스템공학과","수산해양대학","여수",[0.0,0.6,0.6,0.4],'eng',"선박기관사·해기사·플랜트·조선"),
+ D("조선해양공학과","수산해양대학","여수",[-0.1,0.5,0.6,0.4],'eng',"조선설계·해양플랜트·선박기자재"),
+ D("수산생명의학과","수산해양대학","여수",[-0.1,0.4,0.3,0.3],'bio',"수산질병관리사·수산방역·수산연구"),
+ D("스마트수산자원관리학과","수산해양대학","여수",[0.1,0.3,0.4,0.4],'bio',"수산자원관리·스마트양식·해양수산공무원"),
+ D("자율전공학부(4년)","직할학부","광주",[0.1,-0.4,0.0,-0.5],'free',"전공 탐색 후 선택·융합전공·다전공 설계"),
+ D("자율전공학부(1년)","직할학부","광주",[0.1,-0.3,0.0,-0.5],'free',"1년 탐색 후 학과 배정·진로 설계"),
+ D("창의융합학부","직할학부","여수",[0.2,-0.5,0.0,-0.4],'free',"융합 프로젝트·창업·다전공 설계")
+];
+
+/* ===== A. 학과·분야 벡터 축별 표준화 =====
+   95개 모집단위 전체의 축별 평균을 0으로 옮기고 표준편차 1 → 0.35 로 재척도(±1 클리핑).
+   매칭(sim)에는 vz를 쓰고, 상세 카드의 "◆ 학과 성향" 표시는 원본 v를 그대로 사용. */
+const Z_SCALE=0.35;
+function standardize(list){
+  const mu=[0,1,2,3].map(i=>list.reduce((s,d)=>s+d.v[i],0)/list.length);
+  const sd=[0,1,2,3].map(i=>Math.sqrt(list.reduce((s,d)=>s+(d.v[i]-mu[i])**2,0)/list.length)||1);
+  list.forEach(d=>{d.vz=d.v.map((x,i)=>clamp((x-mu[i])/sd[i]*Z_SCALE));});
+  return{mu,sd};
+}
+const DEPT_STAT=standardize(DEPTS);
+const FIELD_STAT=standardize(FIELDS);
+
+/* ===== 5. 상태 ===== */
+let ACTIVE=[],N=0;
+let order=[],pos=0,answers=[],rts=[],shownAt=0;
+let deptCampus='all',deptFieldSel='all',deptLimit=8,lastResult=null,radar=null,fieldChart=null;
+const $=id=>document.getElementById(id);
+const OPTS=["전혀 그렇지 않다","그렇지 않다","보통이다","그렇다","매우 그렇다"];
+const shortN=n=>n.split('(')[0];
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function setMode(m){MODE=m;ACTIVE=questions.map((q,i)=>i).filter(i=>m==='full'||questions[i].s===1);N=ACTIVE.length;}
+
+/* ===== 6. 채점 · 매칭 · 분포 · 신뢰도 ===== */
+function computeAxes(){
+  const res={};
+  AXES.forEach(ax=>{
+    let sum=0,max=0,n=0;
+    ACTIVE.forEach(i=>{const q=questions[i];if(q.a!==ax.key||answers[i]==null)return;sum+=(answers[i]-3)*q.k*q.w;max+=2*q.w;n++;});
+    const raw=max?sum/max:0,pctL=Math.round(50+raw*50);
+    res[ax.key]={raw,pctL,pctR:100-pctL,n,letter:raw>=0?ax.left:ax.right,clarity:clarity(Math.abs(raw))};
+  });
+  return res;
+}
+function clarity(a){return a<C().border?'경계':a<0.4?'보통':a<0.7?'뚜렷':'매우 뚜렷';}
+function typeOf(ax){return AXES.map(a=>ax[a.key].letter).join('');}
+function altType(ax){
+  let minAx=null,min=1;
+  AXES.forEach(a=>{const r=Math.abs(ax[a.key].raw);if(r<min){min=r;minAx=a;}});
+  if(min>=C().border)return null;
+  return AXES.map(a=>a===minAx?(ax[a.key].letter===a.left?a.right:a.left):ax[a.key].letter).join('');
+}
+/* B: 매칭용 사용자 벡터 = raw − CAL (유형 판정에는 미적용) */
+function userVec(ax){const u=AXES.map((a,i)=>clamp(ax[a.key].raw-CAL[i]));return{u,c:u.map(v=>0.5+Math.abs(v))};}
+function sim(u,c,v){let s=0,cs=0;v.forEach((dv,i)=>{s+=c[i]*(1-Math.abs(u[i]-dv)/2);cs+=c[i];});return Math.round(s/cs*100);}
+function matchDepts(ax){
+  const {u,c}=userVec(ax);
+  return DEPTS.map(d=>{const why=[];d.vz.forEach((dv,i)=>{if(Math.abs(dv)>=0.25&&Math.abs(u[i])>=C().border&&Math.sign(dv)===Math.sign(u[i]))why.push(dv>0?AXES[i].left:AXES[i].right);});
+    return Object.assign({},d,{score:sim(u,c,d.vz),why});}).sort((a,b)=>b.score-a.score);
+}
+function matchFields(ax){const {u,c}=userVec(ax);return FIELDS.map(f=>Object.assign({},f,{score:sim(u,c,f.vz)})).sort((a,b)=>b.score-a.score);}
+function typeDist(ax){
+  const k=4,pl=AXES.map(a=>1/(1+Math.exp(-k*ax[a.key].raw)));
+  const out=[];
+  for(let m=0;m<16;m++){let t='',p=1;AXES.forEach((a,i)=>{const L=!((m>>(3-i))&1);t+=L?a.left:a.right;p*=L?pl[i]:1-pl[i];});out.push({t,p});}
+  return out.sort((a,b)=>b.p-a.p).map(x=>({t:x.t,pct:Math.round(x.p*100)}));
+}
+function reliability(){
+  const answered=ACTIVE.filter(i=>answers[i]!=null).length,rate=answered/N;
+  const seq=order.map(i=>answers[i]).filter(a=>a!=null);
+  let run=1,maxRun=1;for(let i=1;i<seq.length;i++){run=seq[i]===seq[i-1]?run+1:1;maxRun=Math.max(maxRun,run);}
+  const mean=seq.reduce((a,b)=>a+b,0)/(seq.length||1);
+  const sd=Math.sqrt(seq.reduce((a,b)=>a+(b-mean)**2,0)/(seq.length||1));
+  const pairs={};ACTIVE.forEach(i=>{const q=questions[i];if(!q.p||answers[i]==null)return;(pairs[q.p]=pairs[q.p]||[]).push((answers[i]-3)*q.k);});
+  const diffs=Object.values(pairs).filter(a=>a.length===2).map(a=>Math.abs(a[0]-a[1]));
+  const consistency=diffs.length?1-(diffs.reduce((a,b)=>a+b,0)/diffs.length)/4:null;
+  const t=rts.filter(x=>x>0).sort((a,b)=>a-b);const medRT=t.length?t[Math.floor(t.length/2)]:null;
+  const flags=[];let penalty=0;
+  if(rate<0.8){flags.push(`응답률 ${Math.round(rate*100)}% — 80% 미만으로 결과 신뢰도가 낮습니다.`);penalty+=2;}
+  if(maxRun>=C().run){flags.push(`동일 응답 ${maxRun}회 연속 — 기계적 응답 가능성.`);penalty+=1;}
+  if(sd<0.5&&seq.length>10){flags.push(`응답 분산이 매우 낮음(SD ${sd.toFixed(2)}) — 변별력 저하.`);penalty+=1;}
+  if(consistency!=null&&consistency<0.6){flags.push(`쌍 문항 일관성 ${Math.round(consistency*100)}% — 60% 미만.`);penalty+=1;}
+  if(medRT!=null&&medRT<800){flags.push(`중앙 응답시간 ${medRT}ms — 문항을 충분히 읽지 않았을 가능성.`);penalty+=1;}
+  return{rate,answered,maxRun,sd,consistency,medRT,flags,pairs:diffs.length,grade:penalty===0?'높음':penalty<=1?'보통':'낮음'};
+}
+
+/* ===== B-2. 보정값 수집 로그 (축별 raw 4개 + 모드 + 시각만 저장) ===== */
+const LOG_KEY='jnu_cal_log';
+function readLog(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'[]');}catch(e){return[];}}
+function logCal(ax,rel){
+  if(rel.grade==='낮음')return;                       // 신뢰도 낮은 응답은 보정 통계에서 제외
+  try{const L=readLog();L.push({m:MODE,d:Date.now(),r:AXES.map(a=>+ax[a.key].raw.toFixed(3))});
+    if(L.length>5000)L.splice(0,L.length-5000);localStorage.setItem(LOG_KEY,JSON.stringify(L));}catch(e){}
+}
+function median(arr){if(!arr.length)return 0;const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+function suggestCal(){const L=readLog();return[0,1,2,3].map(i=>+median(L.map(x=>x.r[i])).toFixed(2));}
+
+/* ===== 7. 검사 흐름 ===== */
+function startTest(mode){
+  setMode(mode);
+  order=shuffle([...ACTIVE]);pos=0;answers=new Array(questions.length).fill(null);rts=new Array(questions.length).fill(0);lastResult=null;
+  $('startScreen').style.display='none';$('progressWrap').style.display='flex';
+  $('questionArea').style.display='flex';$('resultArea').classList.remove('show');
+  $('qMode').textContent=`${C().label} · ${N}문항`;
+  $('btnSkip').style.display=C().skip?'':'none';
+  $('previewSummary').textContent=`각 지표별 ${C().minN}문항 이상 응답하면 실시간 예측이 표시됩니다.`;
+  render();
+}
+function render(){
+  const qi=order[pos],q=questions[qi];
+  $('qCount').textContent=`${pos+1} / ${N}`;$('qText').textContent=q.t;
+  const box=$('options');box.innerHTML='';
+  OPTS.forEach((lab,i)=>{const d=document.createElement('div');d.className='opt'+(answers[qi]===i+1?' selected':'');d.dataset.value=i+1;
+    d.innerHTML=`<span class="val">${i+1}</span><span class="desc">${lab}</span>`;d.onclick=()=>select(i+1);box.appendChild(d);});
+  $('btnPrev').disabled=pos===0;$('btnNext').textContent=pos===N-1?'결과 보기':'다음';
+  shownAt=performance.now();updateProgress();updatePreview();
+}
+function select(v){
+  const qi=order[pos];if(answers[qi]==null)rts[qi]=Math.round(performance.now()-shownAt);answers[qi]=v;
+  [...$('options').children].forEach(c=>c.classList.toggle('selected',+c.dataset.value===v));
+  updateProgress();updatePreview();
+  if(MODE==='quick'&&pos<N-1){clearTimeout(select._t);select._t=setTimeout(()=>{if(answers[order[pos]]===v)next(false);},350);}
+}
+function next(force){
+  if(!force&&answers[order[pos]]==null){alert("응답을 선택해주세요."+(C().skip?" 건너뛰려면 '건너뛰기'를 눌러주세요.":""));return;}
+  if(pos>=N-1)finish();else{pos++;render();}
+}
+function prev(){clearTimeout(select._t);if(pos>0){pos--;render();}}
+function updateProgress(){
+  const done=ACTIVE.filter(i=>answers[i]!=null).length;
+  $('progressFill').style.width=`${Math.round(done/N*100)}%`;
+  $('progressLabel').textContent=`${pos+1} / ${N}`;$('qAnswered').textContent=`응답 ${done} · 미응답 ${N-done}`;
+}
+function updatePreview(){
+  const ax=computeAxes();
+  if(AXES.some(a=>ax[a.key].n<C().minN)){$('previewBadge').textContent='— —';$('previewConf').textContent='';$('previewAxes').innerHTML='';
+    $('previewSummary').textContent=`각 지표별 ${C().minN}문항 이상 응답하면 실시간 예측이 표시됩니다.`;$('previewJobs').innerHTML='<li>—</li>';$('previewMajors').innerHTML='<li>—</li>';return;}
+  const t=typeOf(ax),alt=altType(ax);
+  $('previewBadge').textContent=t;$('previewConf').textContent=alt?`(경계: ${alt} 가능)`:'';
+  $('previewAxes').innerHTML=AXES.map(a=>axisBar(a,ax[a.key],true)).join('');
+  $('previewSummary').textContent=P[t].s;
+  $('previewJobs').innerHTML=P[t].j.slice(0,5).map(j=>`<li>${j[0]}</li>`).join('');
+  $('previewMajors').innerHTML=matchDepts(ax).slice(0,3).map(d=>`<li>${shortN(d.n)} <small style="color:#7d63b8">${d.score}%</small></li>`).join('');
+}
+function axisBar(a,r,mini){
+  const pl=r.pctL,dev=Math.abs(pl-50),w=Math.max(dev,1),start=pl>=50?50-w:50,dot=pl>=50?50-dev:50+dev;
+  return`<div class="axis"><div class="lab"><span>${a.ln} ${pl}%</span>${mini?'':`<span class="c">${a.desc} · ${r.clarity}</span>`}<span>${r.pctR}% ${a.rn}</span></div>
+    <div class="bar"><div class="mid"></div><div class="fill" style="left:${start}%;width:${w}%"></div><div class="dot" style="left:${dot}%"></div></div>
+    ${mini?'':`<div class="ticks"><span>${a.left} 100</span><span>75</span><span>50</span><span>75</span><span>100 ${a.right}</span></div>`}</div>`;
+}
+function cmpBar(i,uv,dv){
+  const a=AXES[i],up=Math.round(50-uv*50),dp=Math.round(50-dv*50);
+  return`<div class="cmp"><span>${a.left}</span><div class="ctrack"><i class="dep" style="left:${dp}%"></i><i class="me" style="left:${up}%"></i></div><span>${a.right}</span></div>`;
+}
+
+/* ===== 8. 결과 ===== */
+function finish(){
+  clearTimeout(select._t);
+  const ax=computeAxes(),rel=reliability();
+  if(rel.rate<0.8&&!confirm(`응답률이 ${Math.round(rel.rate*100)}%입니다. 미응답 문항이 많으면 결과가 부정확합니다. 그래도 결과를 볼까요?`))return;
+  const t=typeOf(ax),alt=altType(ax),depts=matchDepts(ax),fields=matchFields(ax),dist=typeDist(ax),{u}=userVec(ax);
+  lastResult={ax,t,alt,depts,fields,dist,rel,u,mode:MODE};
+  logCal(ax,rel);
+  const p=P[t];
+  $('questionArea').style.display='none';$('progressWrap').style.display='none';
+  $('rDate').textContent=new Date().toLocaleDateString('ko-KR');
+  $('rMode').textContent=`${C().label} ${N}문항`;
+  $('quickNotice').style.display=MODE==='quick'?'block':'none';
+  $('btnUpgrade').style.display=MODE==='quick'?'inline-block':'none';
+  $('rMBTI').textContent=t;$('rSummaryShort').textContent=p.s;
+  $('rAlt').textContent=alt?`경계 지표가 있어 ${alt} 유형의 특성도 함께 나타날 수 있습니다.`:'';
+  $('axisHint').textContent=`● 표시가 중앙(50%)에서 멀수록 해당 선호가 뚜렷합니다. ${Math.round(C().border*100)}% 이내는 '경계'로 두 특성이 함께 나타날 수 있습니다.`;
+  const cls=rel.grade==='높음'?'ok':rel.grade==='보통'?'warn':'bad';
+  $('rReliability').innerHTML=`<span class="badge ${cls}">응답 신뢰도 ${rel.grade}</span>`;
+  $('axisBars').innerHTML=AXES.map(a=>axisBar(a,ax[a.key],false)).join('');
+
+  const poles=[...AXES.map(a=>({l:a.left,v:ax[a.key].pctL})),...AXES.map(a=>({l:a.right,v:ax[a.key].pctR}))];
+  if(radar)radar.destroy();
+  radar=new Chart($('radarChart').getContext('2d'),{type:'radar',
+    data:{labels:poles.map(x=>`${x.l} ${x.v}%`),datasets:[{data:poles.map(x=>x.v),backgroundColor:'rgba(126,90,179,.22)',borderColor:'rgba(126,90,179,1)',borderWidth:2,pointBackgroundColor:'rgba(126,90,179,1)',pointRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},
+      scales:{r:{min:0,max:100,ticks:{stepSize:25,backdropColor:'transparent',font:{size:10}},angleLines:{color:'rgba(0,0,0,.08)'},grid:{color:'rgba(0,0,0,.06)'},pointLabels:{font:{size:12,weight:'700'}}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}%`}}}}});
+
+  const dm=Object.fromEntries(dist.map(d=>[d.t,d.pct]));
+  const ORDER=['ISTJ','ISFJ','INFJ','INTJ','ISTP','ISFP','INFP','INTP','ESTP','ESFP','ENFP','ENTP','ESTJ','ESFJ','ENFJ','ENTJ'];
+  $('typeGrid').innerHTML=ORDER.map(x=>{const pc=dm[x],op=Math.min(1,0.06+pc/100*1.4);
+    return`<div class="tcell${x===t?' top':''}${op>0.55?' dark':''}" style="background:rgba(126,90,179,${op.toFixed(2)})"><b>${x}</b><span>${pc}%</span></div>`;}).join('');
+  $('typeTop').innerHTML=`가까운 유형: ${dist.slice(0,3).map(d=>`<b style="color:var(--deep)">${d.t}</b> ${d.pct}%`).join(' · ')} &nbsp;|&nbsp; 1위 확률이 높을수록 유형이 안정적이고, 2·3위와 차이가 작으면 두 유형의 특성이 섞여 나타납니다.`;
+
+  $('rProfile').innerHTML=`<h3>성격 요약</h3><p style="margin:0 0 8px;color:var(--muted);line-height:1.7">${p.s}</p>
+    <div class="grid2" style="margin-top:6px">
+      <div><b style="font-size:13px">강점</b><ul style="margin:4px 0;padding-left:18px;color:var(--muted);font-size:13px">${p.st.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+      <div><b style="font-size:13px">성장 포인트</b><ul style="margin:4px 0;padding-left:18px;color:var(--muted);font-size:13px">${p.g.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+      <div><b style="font-size:13px">학습 스타일</b><p style="margin:4px 0;color:var(--muted);font-size:13px;line-height:1.6">${p.ls}</p></div>
+      <div><b style="font-size:13px">어울리는 환경</b><p style="margin:4px 0;color:var(--muted);font-size:13px;line-height:1.6">${p.env}</p></div>
+    </div>`;
+
+  if(fieldChart)fieldChart.destroy();
+  fieldChart=new Chart($('fieldChart').getContext('2d'),{type:'bar',
+    data:{labels:fields.map(f=>f.n),datasets:[{data:fields.map(f=>f.score),backgroundColor:fields.map((f,i)=>i<3?'rgba(91,63,160,.9)':'rgba(191,166,230,.7)'),borderRadius:6,barThickness:16}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:400},
+      scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%'},grid:{color:'rgba(0,0,0,.05)'}},y:{grid:{display:false},ticks:{font:{size:12,weight:'700'}}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` 적합도 ${c.raw}%`}}}}});
+  $('fieldDetail').innerHTML=fields.slice(0,3).map((f,i)=>{
+    const jobs=p.j.filter(j=>j[1]===f.id).map(j=>j[0]);const ds=depts.filter(d=>d.f===f.id).slice(0,4);
+    return`<div class="fblock"><div class="jhead"><b><span class="rank">${i+1}</span>${f.n}</b><span class="badge fit">적합도 ${f.score}%</span></div>
+      <div class="fline"><span class="lbl">이 분야의 추천 직업</span>${jobs.length?jobs.map(x=>`<span class="chip">${x}</span>`).join(''):'<span class="hint">대표 직업 10종 외 분야 — 아래 학과의 진출 분야를 참고하세요</span>'}</div>
+      <div class="fline"><span class="lbl">관련 전남대 학과</span>${ds.map(d=>`<span class="chip">${shortN(d.n)}<small>${d.score}%</small></span>`).join('')}</div></div>`;}).join('');
+
+  const fm2=Object.fromEntries(fields.map(f=>[f.id,f])),groups={};
+  p.j.forEach(([n,f])=>{(groups[f]=groups[f]||[]).push(n);});
+  $('jobList').innerHTML=Object.keys(groups).sort((a,b)=>fm2[b].score-fm2[a].score)
+    .map(f=>`<div class="jgroup"><div class="jhead"><b style="font-size:13px">${fm2[f].n}</b><span class="badge fit">적합도 ${fm2[f].score}%</span></div><div>${groups[f].map(n=>`<span class="chip">${n}</span>`).join('')}</div></div>`).join('');
+
+  $('deptTop').innerHTML=depts.slice(0,3).map((d,i)=>`<div class="dcard">
+    <div class="jhead"><div><span class="rank">${i+1}</span><b>${d.n}</b><div class="hint" style="margin-top:4px">${d.c} · <span class="badge ${d.cp==='광주'?'gj':'ys'}">${d.cp}</span> · ${FM[d.f].n}</div></div><div class="score">${d.score}%</div></div>
+    <div class="cmpwrap">${AXES.map((a,k)=>cmpBar(k,u[k],d.v[k])).join('')}</div>
+    <div class="fline"><span class="lbl">주요 진출 분야</span>${d.cr.split('·').map(x=>`<span class="chip">${x}</span>`).join('')}</div>
+    ${d.why.length?`<div class="reason">${d.why.join('·')} 성향 부합</div>`:''}</div>`).join('');
+
+  const sel=$('deptField');sel.innerHTML='<option value="all">모든 분야</option>'+FIELDS.map(f=>`<option value="${f.id}">${f.n}</option>`).join('');
+  deptCampus='all';deptFieldSel='all';deptLimit=C().rows;
+  document.querySelectorAll('[data-campus]').forEach(b=>b.classList.toggle('on',b.dataset.campus==='all'));
+  renderDepts();
+
+  const calOn=CAL.some(x=>x!==0);
+  $('relList').innerHTML=[
+    `검사 모드: ${C().label} (${N}문항)`,
+    `응답률: ${rel.answered}/${N} (${Math.round(rel.rate*100)}%)`,
+    `쌍 문항 일관성: ${rel.consistency==null?'산출 불가':Math.round(rel.consistency*100)+'%'} (${rel.pairs}쌍 기준)`,
+    `동일 응답 최대 연속: ${rel.maxRun}회 · 응답 표준편차 ${rel.sd.toFixed(2)}`,
+    `중앙 응답시간: ${rel.medRT==null?'—':rel.medRT+'ms'}`,
+    `학과 매칭 방식: 95개 모집단위 성향 분포 표준화 기준 상대 비교${calOn?` · 응답자 보정 적용 [${CAL.join(', ')}]`:''}`,
+    ...rel.flags.map(f=>`<span style="color:var(--bad)">⚠ ${f}</span>`),
+    rel.flags.length?'':'<span style="color:var(--ok)">✔ 특이 응답 패턴이 없습니다.</span>'
+  ].filter(Boolean).map(x=>`<li>${x}</li>`).join('');
+  $('resultArea').classList.add('show');$('resultArea').scrollIntoView({behavior:'smooth'});
+}
+function deptDetail(d){
+  const u=lastResult.u;
+  return`<div class="hint" style="margin-bottom:6px">${FM[d.f].n} · ● 나 · ◆ 학과 성향</div>
+    <div class="cmpwrap" style="margin-top:0">${AXES.map((a,k)=>cmpBar(k,u[k],d.v[k])).join('')}</div>
+    <div class="fline"><span class="lbl">주요 진출 분야</span>${d.cr.split('·').map(x=>`<span class="chip">${x}</span>`).join('')}</div>`;
+}
+function renderDepts(){
+  if(!lastResult)return;
+  const base=CFG[lastResult.mode].rows;
+  const rows=lastResult.depts.map((d,i)=>({d,i})).filter(x=>(deptCampus==='all'||x.d.cp===deptCampus)&&(deptFieldSel==='all'||x.d.f===deptFieldSel)).slice(0,deptLimit);
+  $('deptBody').innerHTML=rows.map((x,k)=>{const d=x.d;return`<tr data-i="${x.i}"><td>${k+1}</td><td><b>${d.n}</b><div class="reason">${FM[d.f].n}${d.why.length?` · ${d.why.join('·')} 성향 부합`:''}</div></td><td>${d.c}</td>
+    <td><span class="badge ${d.cp==='광주'?'gj':'ys'}">${d.cp}</span></td><td><div class="flex"><div class="mbar"><i style="width:${d.score}%"></i></div><b style="font-size:12px">${d.score}%</b></div></td></tr>`;}).join('');
+  $('btnMore').textContent=deptLimit>base?'접기':'더 보기';
+}
+
+/* ===== 9. PDF ===== */
+async function downloadPDF(){
+  const btn=$('btnDownload');btn.disabled=true;
+  try{
+    await new Promise(r=>setTimeout(r,200));
+    const canvas=await html2canvas($('resultArea'),{scale:2,useCORS:true,logging:false,backgroundColor:'#ffffff'});
+    const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:'portrait',unit:'pt',format:'a4'});
+    const m=24,pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+    const imgW=pw-m*2,ratio=imgW/canvas.width,sliceH=Math.floor((ph-m*2)/ratio);
+    for(let y=0,first=true;y<canvas.height;y+=sliceH,first=false){
+      const h=Math.min(sliceH,canvas.height-y),s=document.createElement('canvas');s.width=canvas.width;s.height=h;
+      s.getContext('2d').drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
+      if(!first)pdf.addPage();pdf.addImage(s.toDataURL('image/png'),'PNG',m,m,imgW,h*ratio);
+    }
+    pdf.save(`JNU_MBTI_${lastResult?lastResult.t:'result'}_${MODE}_${new Date().toISOString().slice(0,10)}.pdf`);
+  }catch(e){console.error(e);alert("PDF 생성 중 오류가 발생했습니다.");}
+  finally{btn.disabled=false;}
+}
+
+/* ===== 10. 관리자 패널 ===== */
+function openAdmin(){
+  const L=readLog(),sug=suggestCal(),byMode={quick:L.filter(x=>x.m==='quick').length,full:L.filter(x=>x.m==='full').length};
+  const names=['E–I','S–N','T–F','J–P'];
+  $('adminBody').innerHTML=`
+    <div>누적 응답: <b>${L.length}</b>명 (빠른 ${byMode.quick} · 정밀 ${byMode.full}) · 신뢰도 '낮음' 응답은 제외됨</div>
+    <table><thead><tr><th>축</th><th>누적 중앙값(raw)</th><th>현재 CAL</th><th>새 CAL 입력</th></tr></thead><tbody>
+    ${names.map((n,i)=>`<tr><td><b>${n}</b></td><td>${L.length?sug[i]:'—'}</td><td>${CAL[i]}</td><td><input id="cal${i}" type="number" step="0.01" min="-1" max="1" value="${CAL[i]}"></td></tr>`).join('')}
+    </tbody></table>
+    <div class="hint">중앙값이 음수면 참가자들이 I/N/F/P 쪽으로 치우쳐 있다는 뜻입니다. CAL에 그 값을 넣으면 "평균적인 참가자"가 학과 매칭에서 중앙(0)에 놓입니다.</div>`;
+  $('adminOv').classList.add('show');
+}
+$('adSuggest').onclick=()=>{const s=suggestCal();s.forEach((v,i)=>$('cal'+i).value=v);};
+$('adApply').onclick=()=>{
+  CAL=[0,1,2,3].map(i=>clamp(+($('cal'+i).value||0)));
+  localStorage.setItem('jnu_cal',JSON.stringify(CAL));
+  alert(`보정값 적용: [${CAL.join(', ')}]\n다음 검사부터 학과·분야 매칭에 반영됩니다.`);$('adminOv').classList.remove('show');
+};
+$('adCopy').onclick=async()=>{try{await navigator.clipboard.writeText(JSON.stringify(readLog()));alert('로그를 클립보드에 복사했습니다.');}catch(e){prompt('아래 내용을 복사하세요',JSON.stringify(readLog()));}};
+$('adClear').onclick=()=>{if(confirm('누적 로그를 모두 삭제할까요?')){localStorage.removeItem(LOG_KEY);openAdmin();}};
+$('adClose').onclick=()=>$('adminOv').classList.remove('show');
+let tapN=0,tapT=0;
+$('foot').addEventListener('click',()=>{const now=Date.now();tapN=now-tapT<1500?tapN+1:1;tapT=now;if(tapN>=5){tapN=0;openAdmin();}});
+document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='a'){e.preventDefault();openAdmin();}});
+
+/* ===== 11. 초기화 · 이벤트 ===== */
+function restartAll(){
+  clearTimeout(select._t);
+  $('questionArea').style.display='none';$('progressWrap').style.display='none';$('resultArea').classList.remove('show');
+  $('startScreen').style.display='flex';
+  answers=[];rts=[];pos=0;lastResult=null;
+  $('progressFill').style.width='0%';
+  $('previewBadge').textContent='— —';$('previewConf').textContent='';$('previewAxes').innerHTML='';
+  $('previewSummary').textContent='검사를 시작하면 실시간 예측이 표시됩니다.';
+  $('previewJobs').innerHTML='<li>—</li>';$('previewMajors').innerHTML='<li>—</li>';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.mode-card').forEach(b=>b.onclick=()=>startTest(b.dataset.mode));
+$('btnPrev').onclick=prev;$('btnNext').onclick=()=>{clearTimeout(select._t);next(false);};
+$('btnSkip').onclick=()=>{answers[order[pos]]=null;next(true);};
+$('btnRetake').onclick=restartAll;
+$('btnUpgrade').onclick=()=>{restartAll();startTest('full');};
+$('btnDownload').onclick=downloadPDF;
+document.querySelectorAll('[data-campus]').forEach(b=>b.onclick=()=>{deptCampus=b.dataset.campus;document.querySelectorAll('[data-campus]').forEach(x=>x.classList.toggle('on',x===b));renderDepts();});
+$('deptField').onchange=e=>{deptFieldSel=e.target.value;renderDepts();};
+$('btnMore').onclick=()=>{const base=CFG[lastResult.mode].rows;deptLimit=deptLimit>base?base:20;renderDepts();};
+$('deptBody').onclick=e=>{
+  const tr=e.target.closest('tr[data-i]');if(!tr)return;
+  const nx=tr.nextElementSibling;
+  if(nx&&nx.classList.contains('drow')){nx.remove();return;}
+  tr.insertAdjacentHTML('afterend',`<tr class="drow"><td colspan="5">${deptDetail(lastResult.depts[+tr.dataset.i])}</td></tr>`);
+};
+document.addEventListener('keydown',e=>{
+  if($('adminOv').classList.contains('show'))return;
+  if($('questionArea').style.display==='none')return;
+  if(e.key>='1'&&e.key<='5')select(+e.key);
+  else if(e.key==='ArrowRight'||e.key==='Enter'){clearTimeout(select._t);next(false);}
+  else if(e.key==='ArrowLeft')prev();
+});
+</script>
+</body>
+</html>
