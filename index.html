@@ -843,22 +843,111 @@ function renderDepts(){
 }
 
 /* ===== 9. PDF ===== */
+async function freezeForCapture(){
+  // 차트 애니메이션을 끄고 즉시 재렌더 — 캡처 순간 애니메이션과 겹쳐 숫자가 이중 노출되는 문제 방지
+  [radar, fieldChart].forEach(ch=>{
+    if(!ch)return;
+    try{ch.options.animation=false; ch.update('none');}catch(e){}
+  });
+  document.body.classList.add('pdf-capturing'); // 전환/호버 효과 잠금
+  if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;}catch(e){}}
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  await new Promise(r=>setTimeout(r,300));
+}
+function unfreezeAfterCapture(){document.body.classList.remove('pdf-capturing');}
+
+function collectInnerBreakpoints(el){
+  // 카드 하나가 페이지보다 길 때만 사용: 행/소블록 경계에서만 자르도록 좌표 수집
+  const sel='tr, .dcard, .fblock, .jgroup, .tcell, .rec-card';
+  const rect0=el.getBoundingClientRect();
+  const pts=new Set();
+  [...el.querySelectorAll(sel)].forEach(n=>{
+    if(n.offsetWidth===0&&n.offsetHeight===0)return;
+    const r=n.getBoundingClientRect();
+    const top=r.top-rect0.top, bottom=r.bottom-rect0.top;
+    if(top>2)pts.add(Math.round(top));
+    if(bottom>2)pts.add(Math.round(bottom));
+  });
+  return [...pts].sort((a,b)=>a-b);
+}
+
 async function downloadPDF(){
   const btn=$('btnDownload');btn.disabled=true;
+  const target=$('resultArea');
+  const prevScroll={x:window.scrollX,y:window.scrollY};
   try{
-    await new Promise(r=>setTimeout(r,200));
-    const canvas=await html2canvas($('resultArea'),{scale:2,useCORS:true,logging:false,backgroundColor:'#ffffff'});
-    const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:'portrait',unit:'pt',format:'a4'});
-    const m=24,pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
-    const imgW=pw-m*2,ratio=imgW/canvas.width,sliceH=Math.floor((ph-m*2)/ratio);
-    for(let y=0,first=true;y<canvas.height;y+=sliceH,first=false){
-      const h=Math.min(sliceH,canvas.height-y),s=document.createElement('canvas');s.width=canvas.width;s.height=h;
-      s.getContext('2d').drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
-      if(!first)pdf.addPage();pdf.addImage(s.toDataURL('image/png'),'PNG',m,m,imgW,h*ratio);
+    window.scrollTo(0,0);
+    await freezeForCapture();
+    await new Promise(r=>setTimeout(r,80));
+
+    // 결과영역의 최상위 섹션(카드)들만 블록 단위로 수집 — 버튼류(data-html2canvas-ignore)는 제외
+    const blocks=[...target.children].filter(el=>{
+      if(el.hasAttribute('data-html2canvas-ignore'))return false;
+      if(el.offsetHeight===0&&el.offsetWidth===0)return false;
+      return true;
+    });
+
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'pt',format:'a4'});
+    const m=24, pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight();
+    const imgW=pw-m*2, usableH=ph-m*2;
+    let cursorY=0, pageStarted=false;
+    function newPage(){if(pageStarted)pdf.addPage();pageStarted=true;cursorY=0;}
+    newPage();
+
+    for(const block of blocks){
+      let scale=2;
+      const rect=block.getBoundingClientRect();
+      const MAX_PIXELS=16000000; // 기기별 캔버스 한도 대비(iOS 등) — 카드 단위라 전체캡처보다 훨씬 여유 있음
+      const estPixels=rect.width*block.scrollHeight*scale*scale;
+      if(estPixels>MAX_PIXELS)scale=Math.max(1,Math.sqrt(MAX_PIXELS/(rect.width*block.scrollHeight)));
+
+      const canvas=await html2canvas(block,{
+        scale, useCORS:true, logging:false, backgroundColor:'#ffffff',
+        imageTimeout:15000, removeContainer:true,
+        ignoreElements:n=>n.hasAttribute&&n.hasAttribute('data-html2canvas-ignore')
+      });
+
+      const ratio=imgW/canvas.width;
+      const fullImgH=canvas.height*ratio;
+
+      if(fullImgH<=usableH){
+        // 카드 전체가 한 페이지에 들어가면 절대 자르지 않고 통째로 배치
+        if(cursorY+fullImgH>usableH)newPage();
+        pdf.addImage(canvas.toDataURL('image/png'),'PNG',m,m+cursorY,imgW,fullImgH);
+        cursorY+=fullImgH+6;
+      }else{
+        // 표·목록처럼 카드 하나가 한 페이지보다 긴 경우에만 행 경계에서 분할
+        const factor=canvas.width/rect.width;
+        const innerBreaks=collectInnerBreakpoints(block).map(v=>Math.round(v*factor)).filter(v=>v>0&&v<canvas.height);
+        let cursor=0;
+        while(cursor<canvas.height){
+          if(cursorY>=usableH-20)newPage();
+          const remainPx=(usableH-cursorY)/ratio;
+          let end=Math.min(cursor+remainPx,canvas.height);
+          if(end<canvas.height){
+            let best=-1;
+            for(const c of innerBreaks){if(c>cursor+30&&c<=end)best=Math.max(best,c);}
+            if(best>cursor)end=best;
+          }
+          const h=end-cursor;if(h<=0)break;
+          const s=document.createElement('canvas');s.width=canvas.width;s.height=h;
+          s.getContext('2d').drawImage(canvas,0,cursor,canvas.width,h,0,0,canvas.width,h);
+          const sliceImgH=h*ratio;
+          if(cursorY+sliceImgH>usableH+1)newPage();
+          pdf.addImage(s.toDataURL('image/png'),'PNG',m,m+cursorY,imgW,sliceImgH);
+          cursorY+=sliceImgH;cursor=end;
+        }
+        cursorY+=6;
+      }
     }
     pdf.save(`JNU_MBTI_${lastResult?lastResult.t:'result'}_${MODE}_${new Date().toISOString().slice(0,10)}.pdf`);
-  }catch(e){console.error(e);alert("PDF 생성 중 오류가 발생했습니다.");}
-  finally{btn.disabled=false;}
+  }catch(e){console.error(e);alert("PDF 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");}
+  finally{
+    unfreezeAfterCapture();
+    window.scrollTo(prevScroll.x,prevScroll.y);
+    btn.disabled=false;
+  }
 }
 
 /* ===== 10. 관리자 패널 ===== */
